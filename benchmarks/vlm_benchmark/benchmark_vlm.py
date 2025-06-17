@@ -30,6 +30,7 @@ class Request:
 class PerfItem:
     start_timestamp: int
     end_timestamp: int
+    token_timestamps: list[int]
     request_id: int
     num_input_tokens: int
     response_is_final: bool
@@ -37,6 +38,7 @@ class PerfItem:
     tokens: list[int]
     decoding_iteration: int
     time_on_first_token: int
+    streaming: bool
 
 
 @dataclass
@@ -47,6 +49,9 @@ class BenchmarkMetrics:
     request_throughput: float
     output_throughput: float
     total_token_throughput: float
+    mean_ttft_ms: float
+    mean_tpots_ms: float
+    mean_itl_ms: list[float]
     mean_e2el_ms: float
 
 
@@ -241,6 +246,9 @@ def load_requests(
 def calculate_metrics(perf_items: list[PerfItem], dur_s: float) -> BenchmarkMetrics:
     total_input = 0
     total_output = 0
+    tpots_ms: list[float] = []
+    ttfts_ms: list[float] = []
+    itls_ms: list[list[float]] = []
     e2els_ms: list[float] = []
 
     for perf_item in perf_items:
@@ -248,7 +256,18 @@ def calculate_metrics(perf_items: list[PerfItem], dur_s: float) -> BenchmarkMetr
         output_len = len(perf_item.tokens)
         total_input += input_len
         total_output += output_len
-        e2els_ms.append((perf_item.end_timestamp - perf_item.start_timestamp) / 1e6)
+        latency_ms = (perf_item.end_timestamp - perf_item.start_timestamp) / 1e6
+        e2els_ms.append(latency_ms)
+
+        if perf_item.streaming:
+            ttft_ms = (perf_item.time_on_first_token - perf_item.start_timestamp) / 1e6
+            if output_len > 1:
+                tpots_ms.append((latency_ms - ttft_ms) / (output_len - 1))
+            ttfts_ms.append(ttft_ms)
+            itl: list[float] = []
+            for i in range(1, len(perf_item.token_timestamps)):
+                itl.append((perf_item.token_timestamps[i] - perf_item.token_timestamps[i - 1]) / 1e6)
+            itls_ms.append(itl)
 
     return BenchmarkMetrics(
         total_duration_s=dur_s,
@@ -257,6 +276,9 @@ def calculate_metrics(perf_items: list[PerfItem], dur_s: float) -> BenchmarkMetr
         request_throughput=len(perf_items) / dur_s,
         output_throughput=total_output / dur_s,
         total_token_throughput=(total_input + total_output) / dur_s,
+        mean_ttft_ms=np.mean(ttfts_ms or 0),
+        mean_tpots_ms=np.mean(tpots_ms or 0),
+        mean_itl_ms=np.mean(itls_ms or 0),
         mean_e2el_ms=np.mean(e2els_ms or 0),
     )
 
@@ -267,16 +289,20 @@ async def generate_request(
     sampling_params: SamplingParams,
     streaming: bool,
     pbar: tqdm,
-) -> RequestOutput:
+) -> PerfItem:
     sampling_params.max_tokens = request.output_tokens
 
     request_start_timestamp = time.perf_counter_ns()
     time_on_first_token = None
     output: RequestOutput = llm.generate_async(request.inputs, sampling_params=sampling_params, streaming=streaming)
     if streaming:
+        token_timestamps: list[int] = []
         async for stream_output in output:
             if time_on_first_token is None:
                 time_on_first_token = time.perf_counter_ns()
+
+            token_timestamps.append(time.perf_counter_ns())
+
         response = stream_output
     else:
         response: RequestOutput = await output.aresult()
@@ -284,7 +310,20 @@ async def generate_request(
     response_end_timestamp = time.perf_counter_ns()
     pbar.update(1)
 
-    return response, request_start_timestamp, response_end_timestamp, time_on_first_token
+    tokens = list(chain(*[beam.token_ids for beam in response.outputs]))
+    return PerfItem(
+        start_timestamp=request_start_timestamp,
+        end_timestamp=response_end_timestamp,
+        token_timestamps=token_timestamps,
+        request_id=response.request_id,
+        num_input_tokens=len(response.prompt_token_ids),
+        response_is_final=response.finished,
+        error=False,
+        tokens=tokens,
+        decoding_iteration=response.decoding_iter,
+        time_on_first_token=time_on_first_token,
+        streaming=streaming,
+    )
 
 
 async def process_request(
@@ -298,29 +337,9 @@ async def process_request(
     sampling_params.max_tokens = request.output_tokens
 
     if sem is None:
-        response, request_start_timestamp, response_end_timestamp, time_on_first_token = await generate_request(
-            llm, request, sampling_params, streaming, pbar
-        )
-    else:
-        async with sem:
-            response, request_start_timestamp, response_end_timestamp, time_on_first_token = await generate_request(
-                llm, request, sampling_params, streaming, pbar
-            )
-
-    tokens = list(chain(*[beam.token_ids for beam in response.outputs]))
-    request_perf_item = PerfItem(
-        start_timestamp=request_start_timestamp,
-        end_timestamp=response_end_timestamp,
-        request_id=response.request_id,
-        num_input_tokens=len(response.prompt_token_ids),
-        response_is_final=response.finished,
-        error=False,
-        tokens=tokens,
-        decoding_iteration=response.decoding_iter,
-        time_on_first_token=time_on_first_token,
-    )
-
-    return request_perf_item
+        return await generate_request(llm, request, sampling_params, streaming, pbar)
+    async with sem:
+        return await generate_request(llm, request, sampling_params, streaming, pbar)
 
 
 async def benchmark(
@@ -409,3 +428,6 @@ if __name__ == "__main__":
     print(f" Output token throughput (tok/s): {metrics.output_throughput:.3f}")
     print(f" Total token throughput (tok/s): {metrics.total_token_throughput:.3f}")
     print(f" Mean E2E latency (ms): {metrics.mean_e2el_ms:.3f}")
+    if args.streaming:
+        print(f" Mean TTFT (ms): {metrics.mean_ttft_ms:.3f}")
+        print(f" Mean TPOTS (ms): {metrics.mean_tpots_ms:.3f}")
