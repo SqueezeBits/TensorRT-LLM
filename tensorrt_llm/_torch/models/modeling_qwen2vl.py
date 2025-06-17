@@ -1,4 +1,5 @@
 import copy
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
@@ -16,6 +17,7 @@ from ..model_config import ModelConfig
 from .modeling_auto import AutoModelForCausalLM
 from .modeling_multimodal_utils import fuse_input_embeds
 from .modeling_utils import register_auto_model
+from .trt_engine_wrapper import TRTEngineWrapper
 
 
 class Qwen2VLInputProcessorBase(InputProcessor):
@@ -35,6 +37,10 @@ class Qwen2VLInputProcessorBase(InputProcessor):
         self.device = 'cuda'
         self.visual = model.visual.to(self.device)
         self._post_init_()
+        if (vision_engine_path := os.environ.get("VISION_ENGINE_PATH", None)) is not None:
+            self.visual_trt = TRTEngineWrapper.load_engine(vision_engine_path)
+        else:
+            self.visual_trt = None
 
     @classmethod
     def get_model_class(cls) -> type[PreTrainedModel]:
@@ -230,12 +236,24 @@ class Qwen2VLInputProcessorBase(InputProcessor):
 
     def _preprocess(self, text: dict[str, any], mm_data: dict[str, any],
                     mm_processor_kwargs: Dict[str, Any]):
-        return self.processor(text=[text],
-                              images=mm_data.get("image", None),
-                              videos=mm_data.get("video", None),
-                              padding=True,
-                              return_tensors='pt',
-                              **mm_processor_kwargs)
+        if self.visual_trt is None:
+            return self.processor(text=[text],
+                                images=mm_data.get("image", None),
+                                videos=mm_data.get("video", None),
+                                padding=True,
+                                return_tensors='pt',
+                                **mm_processor_kwargs)
+        else:
+            print("Running vision encoder with TRT engine...")
+            inputs = self.processor(text=[text],
+                                images=mm_data.get("image", None),
+                                videos=mm_data.get("video", None),
+                                padding=True,
+                                return_tensors='pt',
+                                **mm_processor_kwargs)
+            assert mm_data.get("image", None) is not None
+            inputs["pixel_values"] = torch.stack(mm_data["image"]).to(torch.float16)
+            return inputs
 
     def _process(self, pixel_values: torch.Tensor,
                  pixel_values_videos: torch.Tensor,
@@ -244,8 +262,12 @@ class Qwen2VLInputProcessorBase(InputProcessor):
         embeds = []
 
         if pixel_values is not None:
-            pixel_values = pixel_values.to(self.visual.dtype)
-            embeds.append(self.visual(pixel_values, grid_thw=image_grid_thw))
+            if self.visual_trt is None:
+                pixel_values = pixel_values.to(self.visual.dtype)
+                embeds.append(self.visual(pixel_values, grid_thw=image_grid_thw))
+            else:
+                vision_output = self.visual_trt(pixel_values)
+                embeds.append(vision_output.reshape(-1, vision_output.shape[-1]))
 
         if pixel_values_videos is not None:
             pixel_values_videos = pixel_values_videos.to(self.visual.dtype)
