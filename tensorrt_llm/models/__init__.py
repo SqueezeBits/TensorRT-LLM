@@ -193,6 +193,7 @@ MODEL_MAP = {
     'Qwen2ForSequenceClassification': QWenForCausalLM,
     'Qwen2VLForConditionalGeneration': QWenForCausalLM,
     'Qwen2VLModel': QWenForCausalLM,
+    'Qwen2_5_VLForConditionalGeneration': QWenForCausalLM,
     'WhisperEncoder': WhisperEncoder,
     'EncoderModel': EncoderModel,
     'DecoderModel': DecoderModel,

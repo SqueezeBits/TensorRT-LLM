@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Optional, Protocol, Tuple, Type, TypeVar
 
 from torch import nn
@@ -91,6 +92,11 @@ def create_input_processor(model_path_or_dir: str, tokenizer):
     from tensorrt_llm._torch.models import get_model_architecture
 
     model_config = None
+    
+    if "DITTO_VLM" in os.environ:
+        input_processor_cls = INPUT_PROCESSOR_REGISTRY._input_processors_cls_by_model_type["DITTO"]
+        return input_processor_cls(model_path_or_dir, model_config, tokenizer)
+
     try:
         config = ModelConfig.from_pretrained(model_path_or_dir,
                                              trust_remote_code=True)
