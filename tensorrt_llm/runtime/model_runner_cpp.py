@@ -733,8 +733,65 @@ class ModelRunnerCpp(ModelRunnerMixin):
         if language_adapter_uids is None:
             language_adapter_uids = [None] * len(batch_input_ids_list)
 
-        requests = [
-            trtllm.Request(
+        # requests = [
+        #     trtllm.Request(
+        #         input_token_ids=input_ids,
+        #         encoder_input_token_ids=encoder_input_ids_list[i]
+        #         if encoder_input_ids is not None else None,
+        #         encoder_output_length=encoder_output_lengths[i]
+        #         if encoder_output_lengths is not None else None,
+        #         encoder_input_features=encoder_input_features[i].contiguous()
+        #         if encoder_input_features is not None else None,
+        #         position_ids=position_ids[i].tolist()
+        #         if position_ids is not None else None,
+        #         cross_attention_mask=cross_attention_masks[i].contiguous() if
+        #         (cross_attention_masks is not None
+        #          and cross_attention_masks[i] is not None) else None,
+        #         max_tokens=max_new_tokens,
+        #         pad_id=pad_id,
+        #         end_id=end_id,
+        #         stop_words=stop_words,
+        #         bad_words=bad_words,
+        #         sampling_config=(sampling_config_each_request
+        #                          if use_sampling_config_for_each_request else
+        #                          sampling_config),
+        #         lookahead_config=request_lookahead_config,
+        #         streaming=streaming,
+        #         output_config=output_config,
+        #         prompt_tuning_config=prompt_tuning_config,
+        #         mrope_config=mrope_config,
+        #         lora_config=lora_config,
+        #         return_all_generated_tokens=return_all_generated_tokens,
+        #         logits_post_processor_name=logits_post_processor_name,
+        #         external_draft_tokens_config=external_draft_tokens_config,
+        #         skip_cross_attn_blocks=skip_cross_attn_blocks,
+        #         language_adapter_uid=language_adapter_uid,
+        #     ) for i,
+        #     (input_ids, stop_words, bad_words, prompt_tuning_config,
+        #      mrope_config, lora_config, logits_post_processor_name,
+        #      external_draft_tokens_config, language_adapter_uid,
+        #      sampling_config_each_request) in enumerate(
+        #          zip(batch_input_ids_list, stop_words_list, bad_words_list,
+        #              prompt_tuning_configs, mrope_configs, lora_configs,
+        #              logits_processor_names, external_draft_tokens_configs,
+        #              language_adapter_uids, sampling_config_list))
+        # ]
+
+        requests = []
+        for i, (input_ids, stop_words, bad_words, prompt_tuning_config, mrope_config, lora_config, logits_post_processor_name, external_draft_tokens_config, language_adapter_uid, sampling_config_each_request) in enumerate(zip(batch_input_ids_list, stop_words_list, bad_words_list, prompt_tuning_configs, mrope_configs, lora_configs, logits_processor_names, external_draft_tokens_configs, language_adapter_uids, sampling_config_list)):
+            
+            print("input_token_ids", len(input_ids)) # List 445
+            print("encoder_input_token_ids", encoder_input_ids_list[i] if encoder_input_ids is not None else None) # None
+            print("encoder_output_length", encoder_output_lengths[i] if encoder_output_lengths is not None else None) # None
+            print("encoder_input_features", (encoder_input_features[i].contiguous().shape, encoder_input_features[i].contiguous().dtype) if encoder_input_features is not None else None) # [1, 3, 384, 384], float16 | None
+            print("position_ids", position_ids[i].tolist() if position_ids is not None else None) # None
+            print("cross_attention_mask", cross_attention_masks[i].contiguous() if (cross_attention_masks is not None and cross_attention_masks[i] is not None) else None) # None
+            print("prompt_tuning_config", prompt_tuning_config) # None | [196, 2560] float16
+            print("mrope_config", mrope_config) # None
+            print("skip_cross_attn_blocks", skip_cross_attn_blocks) # None
+
+            import pdb; pdb.set_trace()
+            req = trtllm.Request(
                 input_token_ids=input_ids,
                 encoder_input_token_ids=encoder_input_ids_list[i]
                 if encoder_input_ids is not None else None,
@@ -766,16 +823,8 @@ class ModelRunnerCpp(ModelRunnerMixin):
                 external_draft_tokens_config=external_draft_tokens_config,
                 skip_cross_attn_blocks=skip_cross_attn_blocks,
                 language_adapter_uid=language_adapter_uid,
-            ) for i,
-            (input_ids, stop_words, bad_words, prompt_tuning_config,
-             mrope_config, lora_config, logits_post_processor_name,
-             external_draft_tokens_config, language_adapter_uid,
-             sampling_config_each_request) in enumerate(
-                 zip(batch_input_ids_list, stop_words_list, bad_words_list,
-                     prompt_tuning_configs, mrope_configs, lora_configs,
-                     logits_processor_names, external_draft_tokens_configs,
-                     language_adapter_uids, sampling_config_list))
-        ]
+            )
+            requests.append(req)
 
         request_ids = self.session.enqueue_requests(requests)
         if not streaming:

@@ -1,0 +1,48 @@
+<frozen importlib._bootstrap_external>:1297: FutureWarning: The cuda.cuda module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.driver module instead.
+<frozen importlib._bootstrap_external>:1297: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+[2025-06-18 04:19:57,098] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-18 04:19:57,713] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+2025-06-18 04:19:58,642 - INFO - flashinfer.jit: Prebuilt kernels not found, using JIT backend
+[TensorRT-LLM] TensorRT-LLM version: 0.19.0
+/usr/local/lib/python3.12/dist-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/code/VILA/llava/model/llava_arch.py:118: UserWarning: model_dtype not found in config, defaulting to torch.float16.
+  warnings.warn("model_dtype not found in config, defaulting to torch.float16.")
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  1.22it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  2.25it/s]
+You are attempting to use Flash Attention 2.0 with a model not initialized on GPU. Make sure to move the model to GPU after initializing it on CPU with `model.to('cuda')`.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  1.24it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  2.29it/s]
+[06/18/2025-04:20:02] [TRT] [I] Exporting onnx to /code/tensorrt_llm/engines/vila/vision/onnx/model.onnx
+/code/VILA/llava/model/multimodal_encoder/siglip/modeling_siglip.py:410: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  if attn_weights.size() != (batch_size, self.num_heads, q_len, k_v_seq_len):
+/code/VILA/llava/model/multimodal_encoder/siglip/modeling_siglip.py:428: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  if attn_output.size() != (batch_size, self.num_heads, q_len, self.head_dim):
+/code/VILA/llava/model/multimodal_projector/base_projector.py:52: TracerWarning: Converting a tensor to a Python integer might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  h = w = int(vit_embeds.shape[1] ** 0.5)
+/code/VILA/llava/model/multimodal_projector/base_projector.py:60: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  if w % 2 == 1:
+/code/VILA/llava/model/multimodal_projector/base_projector.py:63: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  if h % 2 == 1:
+/code/VILA/llava/model/multimodal_projector/base_projector.py:67: TracerWarning: Converting a tensor to a Python integer might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  x = x.view(n, w, int(h / 2), int(c * 2))
+/code/VILA/llava/model/multimodal_projector/base_projector.py:69: TracerWarning: Converting a tensor to a Python integer might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  x = x.view(n, int(h / 2), int(w / 2), int(c * 4))
+[06/18/2025-04:20:07] [TRT] [I] Building TRT engine to /code/tensorrt_llm/engines/vila/vision/model.engine
+[06/18/2025-04:20:07] [TRT] [I] [MemUsageChange] Init CUDA: CPU -2, GPU +0, now: CPU 2077, GPU 13698 (MiB)
+[06/18/2025-04:20:09] [TRT] [I] [MemUsageChange] Init builder kernel library: CPU +2648, GPU +412, now: CPU 4572, GPU 14110 (MiB)
+[06/18/2025-04:20:10] [TRT] [I] Succeeded parsing /code/tensorrt_llm/engines/vila/vision/onnx/model.onnx
+[06/18/2025-04:20:10] [TRT] [I] Processed input sizes [3, 384, 384]
+[06/18/2025-04:20:10] [TRT] [I] Global timing cache in use. Profiling results in this builder pass will be stored.
+[06/18/2025-04:20:11] [TRT] [I] Compiler backend is used during engine build.
+[06/18/2025-04:20:34] [TRT] [I] Detected 1 inputs and 1 output network tensors.
+[06/18/2025-04:20:35] [TRT] [I] Total Host Persistent Memory: 5616 bytes
+[06/18/2025-04:20:35] [TRT] [I] Total Device Persistent Memory: 0 bytes
+[06/18/2025-04:20:35] [TRT] [I] Max Scratch Memory: 53654528 bytes
+[06/18/2025-04:20:35] [TRT] [I] [BlockAssignment] Started assigning block shifts. This will take 4 steps to complete.
+[06/18/2025-04:20:35] [TRT] [I] [BlockAssignment] Algorithm ShiftNTopDown took 0.016631ms to assign 2 blocks to 4 nodes requiring 60372992 bytes.
+[06/18/2025-04:20:35] [TRT] [I] Total Activation Memory: 60372992 bytes
+[06/18/2025-04:20:35] [TRT] [I] Total Weights Memory: 832699264 bytes
+[06/18/2025-04:20:35] [TRT] [I] Compiler backend is used during engine execution.
+[06/18/2025-04:20:35] [TRT] [I] Engine generation completed in 25.346 seconds.
+[06/18/2025-04:20:35] [TRT] [I] [MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU 1 MiB, GPU 854 MiB
+[06/18/2025-04:20:36] [TRT] [I] Succeeded building /code/tensorrt_llm/engines/vila/vision/model.engine in 25 s
+[06/18/2025-04:20:36] [TRT] [I] Recording engine output shape in config

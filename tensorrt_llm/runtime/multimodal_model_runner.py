@@ -2071,6 +2071,7 @@ class MultimodalModelRunner:
                 self.args.image_path = ",".join(img_urls)
                 images = load_images(img_urls)
             else:
+                image_path = image_path[0]
                 if isinstance(image_path, str):
                     image_path = image_path.split(self.args.path_sep)
                 images = load_images(image_path)

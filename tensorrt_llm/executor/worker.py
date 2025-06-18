@@ -87,6 +87,15 @@ class ExecutorBindingsWorker(GenerationExecutor):
             processor_batched=batched_logits_processor, replicate=False)
 
         def _create_engine():
+            if "DITTO_VLM_PATH" in os.environ:
+                ditto_vlm_path = os.environ["DITTO_VLM_PATH"].rstrip("/")
+                return tllm.Executor(
+                    ditto_vlm_path + "/vision",
+                    ditto_vlm_path + "/llm",
+                    tllm.ModelType.ENCODER_DECODER,
+                    executor_config
+                )
+
             if isinstance(engine, Engine):
                 return tllm.Executor(engine.engine,
                                      json.dumps(engine.config.to_dict(),
@@ -329,8 +338,9 @@ class ExecutorBindingsWorker(GenerationExecutor):
             prompt_token_ids = list(range(
                 vocab_size, vocab_size + pa_length)) + prompt_token_ids
         elif request.prompt_tuning_config is not None:
-            prompt_tuning_config = tllm.PromptTuningConfig(
-                request.prompt_tuning_config[0])
+            encoder_input_features=copy.deepcopy(request.prompt_tuning_config[0].reshape(-1, 3, 504, 504))
+            # prompt_tuning_config = tllm.PromptTuningConfig(
+                # request.prompt_tuning_config[0])
 
         if request.mrope_config is not None:
             mrope_config = tllm.MropeConfig(**request.mrope_config)
@@ -378,7 +388,8 @@ class ExecutorBindingsWorker(GenerationExecutor):
                 stop_words=request.sampling_params._get_stop_words(),
                 embedding_bias=request.sampling_params.embedding_bias,
                 lora_config=lora_config,
-                prompt_tuning_config=prompt_tuning_config,
+                prompt_tuning_config=None,
+                encoder_input_features=encoder_input_features,
                 mrope_config=mrope_config,
                 logits_post_processor_name=(
                     tllm.Request.BATCHED_POST_PROCESSOR_NAME

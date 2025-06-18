@@ -32,7 +32,7 @@ CUDA_ARCHS         ?=
 BUILD_WHEEL_OPTS   ?=
 BUILD_WHEEL_ARGS   ?= $(shell grep 'ARG BUILD_WHEEL_ARGS=' Dockerfile.multi | grep -o '=.*' | tr -d '="')$(if $(CUDA_ARCHS), --cuda_architectures $(CUDA_ARCHS))$(if $(BUILD_WHEEL_OPTS), $(BUILD_WHEEL_OPTS))
 TORCH_INSTALL_TYPE ?= skip
-CUDA_VERSION       ?=
+CUDA_VERSION       ?= 12.6
 CUDNN_VERSION      ?=
 NCCL_VERSION       ?=
 CUBLAS_VERSION     ?=
@@ -103,13 +103,13 @@ endef
 	@echo "Pulling docker image: $(IMAGE_WITH_TAG)"
 	docker pull $(IMAGE_WITH_TAG)
 
-DOCKER_RUN_OPTS   ?= --rm -it --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
+DOCKER_RUN_OPTS   ?= --rm -d --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
 DOCKER_RUN_ARGS   ?=
-GPU_OPTS          ?= --gpus=all
+GPU_OPTS          ?= --gpus='"device=0"'
 SOURCE_DIR        ?= $(shell readlink -f ..)
 CODE_DIR          ?= /code/tensorrt_llm
 CCACHE_DIR        ?= ${CODE_DIR}/cpp/.ccache
-RUN_CMD           ?=
+RUN_CMD           ?= sleep infinity
 CONTAINER_NAME    ?= tensorrt_llm
 WORK_DIR          ?= $(CODE_DIR)
 DOCKER_PULL       ?= 0
@@ -123,7 +123,9 @@ ifeq ($(LOCAL_USER),1)
 endif
 	docker run $(DOCKER_RUN_OPTS) $(DOCKER_RUN_ARGS) \
     		$(GPU_OPTS) \
+			--volume /home/hdd/huggingface/hub:/hub \
     		--volume $(SOURCE_DIR):$(CODE_DIR) \
+			--env "HF_HUB_CACHE=/hub" \
     		--env "CCACHE_DIR=${CCACHE_DIR}" \
     		--env "CCACHE_BASEDIR=${CODE_DIR}" \
     		--workdir $(WORK_DIR) \
