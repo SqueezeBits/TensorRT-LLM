@@ -20,7 +20,7 @@ class PatchedQwen2VLInputProcessorBase(InputProcessor):
 
     def __init__(self, model_path, model_config: PretrainedConfig, tokenizer: AutoTokenizer):
         model_id = "Qwen/Qwen2.5-VL-3B-Instruct"
-        self.device = 'cuda'
+        self.device = 'cpu'
         self.tokenizer = tokenizer
         self.model_config = AutoConfig.from_pretrained(model_id)
         self.processor = AutoProcessor.from_pretrained(model_id, use_fast=False)
@@ -283,10 +283,9 @@ class PatchedQwen2VLInputProcessorBase(InputProcessor):
         # NOTE: Since we are passed in Tensor images, we don't need to rescale them.
         mm_processor_kwargs['do_rescale'] = False
         processed_inputs = self._preprocess(text_prompt, mm_data,
-                                            mm_processor_kwargs).to(self.device)
+                                            mm_processor_kwargs)
         
         mm_features = processed_inputs.get('pixel_values', None).to(torch.float16)
-        # mm_features = torch.randn(2048, device='cuda:0', dtype=torch.bfloat16)
 
         input_ids = processed_inputs['input_ids']
 
@@ -301,47 +300,6 @@ class PatchedQwen2VLInputProcessorBase(InputProcessor):
             "mrope_config": mrope_config
         }
 
-
-# def setup_inputs(processor: AutoProcessor, input_texts: list[str], images: list[np.ndarray], hf_config = None):
-#     assert (batch_size := len(input_texts)) == len(images), "The number of input texts and images must be the same"
-
-#     messages = [
-#         [
-#             {
-#                 "role": "user",
-#                 "content": [
-#                     {"type": "image", "image": image},
-#                     {"type": "text", "text": text},
-#                 ],
-#             }
-#         ]
-#         for text, image in zip(input_texts, images)
-#     ]
-
-#     texts = [processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True) for msg in messages]
-#     inputs = processor(text=texts, images=images, padding=True, return_tensors="pt")
-
-#     image_grid_thw = inputs["image_grid_thw"]
-#     cu_seqlens = torch.nn.functional.pad(
-#         torch.repeat_interleave(image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]).cumsum(
-#             dim=0, dtype=torch.int32
-#         ),
-#         (1, 0),
-#         value=0,
-#     )
-#     seq_length = (
-#         (images[0].shape[0] // hf_config.vision_config.patch_size)
-#         * (images[0].shape[1] // hf_config.vision_config.patch_size)
-#         * batch_size
-#     )
-#     block_indices = torch.bucketize(torch.arange(seq_length), cu_seqlens, right=True) - 1
-#     attention_mask_vit = torch.where(
-#         block_indices.view(-1, 1) == block_indices.view(1, -1),
-#         torch.zeros((), dtype=inputs["pixel_values"].dtype),
-#         torch.full((), torch.finfo(torch.float16).min, dtype=inputs["pixel_values"].dtype),
-#     ).unsqueeze(0)
-
-#     return inputs["input_ids"], inputs["attention_mask"], attention_mask_vit, image_grid_thw
 
 
 INPUT_PROCESSOR_REGISTRY._input_processors_cls_by_model_type["DITTO"] = PatchedQwen2VLInputProcessorBase
