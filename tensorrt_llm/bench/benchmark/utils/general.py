@@ -43,13 +43,12 @@ def get_settings_from_engine(
 
     engine_world_map = config["pretrained_config"]["mapping"]
     engine_build_cfg = config["build_config"]
-    engine_parallel_map = engine_build_cfg["auto_parallel_config"]
 
     world_config = {
         "pp_size": engine_world_map["pp_size"],
         "tp_size": engine_world_map["tp_size"],
         "world_size": engine_world_map["world_size"],
-        "gpus_per_node": engine_parallel_map["gpus_per_node"],
+        "gpus_per_node": engine_world_map["gpus_per_node"],
     }
 
     executor_settings = {
@@ -65,9 +64,7 @@ def get_settings_from_engine(
     })
 
     runtime_config["performance_options"] = {}
-    runtime_config["decoding_config"] = {
-        "decoding_mode": engine_build_cfg["speculative_decoding_mode"]
-    }
+    runtime_config["decoding_config"] = {}
     return runtime_config, engine_build_cfg
 
 

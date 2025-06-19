@@ -10,7 +10,6 @@ from random import choices
 import numpy as np
 import torch
 from PIL import Image
-from tensorrt_llm._torch.llm import LLM as PyTorchLLM
 from tensorrt_llm.bench.benchmark.utils.general import get_settings_from_engine
 from tensorrt_llm.bench.dataclasses.configuration import RuntimeConfig
 from tensorrt_llm.builder import BuildConfig
@@ -59,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--engine-dir", type=str, default=None)
-    parser.add_argument("--backend", type=str, default="pytorch", choices=["pytorch", "autodeploy", "cpp"])
+    parser.add_argument("--backend", type=str, default="pytorch", choices=["pytorch", "autodeploy", "tensorrt"])
     parser.add_argument("--dataset", type=str, default="random", choices=["random"])
     parser.add_argument("--random-seed", type=int, default=42)
 
@@ -141,13 +140,14 @@ def get_llm_args(args: argparse.Namespace) -> dict:
                 "pytorch_config": pyt_options,
             },
         }
+        exec_settings["model"] = model
     else:
         assert engine_dir is not None, "Engine directory is required for C++ backend"
         assert max_seq_len is None, "max_seq_len is not a runtime parameter for C++ backend"
-        exec_settings, build_cfg = get_settings_from_engine(engine_dir)
+        exec_settings, build_cfg = get_settings_from_engine(engine_dir / "llm")
         kwargs["max_seq_len"] = build_cfg["max_seq_len"]
+        exec_settings["model"] = str(engine_dir / "llm")
 
-    exec_settings["model"] = model
 
     # runtime options
     runtime_max_bs = args.max_batch_size or exec_settings["settings_config"]["max_batch_size"]
@@ -295,8 +295,8 @@ async def generate_request(
     request_start_timestamp = time.perf_counter_ns()
     time_on_first_token = None
     output: RequestOutput = llm.generate_async(request.inputs, sampling_params=sampling_params, streaming=streaming)
+    token_timestamps: list[int] = []
     if streaming:
-        token_timestamps: list[int] = []
         async for stream_output in output:
             if time_on_first_token is None:
                 time_on_first_token = time.perf_counter_ns()
@@ -384,14 +384,13 @@ if __name__ == "__main__":
     llm_args = get_llm_args(args)
     print(f"LLM arguments: {llm_args}")
     print("Loading model...")
-    if args.backend == "pytorch":
-        llm = PyTorchLLM(**llm_args)
+    llm = LLM(**llm_args)
 
     sampling_params = SamplingParams(
         end_id=tokenizer.eos_token_id,
         pad_id=tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.all_special_ids[0],
         max_tokens=128,
-        ignore_eos=False,
+        ignore_eos=True,
     )
 
     if args.warmup > 0:
