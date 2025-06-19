@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import time
+import os
 from dataclasses import dataclass
 from importlib.metadata import version
 from itertools import chain
@@ -58,7 +59,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--engine-dir", type=str, default=None)
-    parser.add_argument("--backend", type=str, default="pytorch", choices=["pytorch", "autodeploy", "tensorrt"])
     parser.add_argument("--dataset", type=str, default="random", choices=["random"])
     parser.add_argument("--random-seed", type=int, default=42)
 
@@ -104,7 +104,7 @@ def get_llm_args(args: argparse.Namespace) -> dict:
     max_seq_len = args.max_seq_len
     model = args.model
     engine_dir = Path(args.engine_dir) if args.engine_dir is not None else None
-    backend = args.backend
+    backend = "tensorrt" if engine_dir and "DITTO_VLM" in os.environ else "pytorch"
     iteration_log = None  # not supported
 
     kwargs = {}
